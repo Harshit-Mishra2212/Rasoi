@@ -1,0 +1,43 @@
+/**
+ * User.js
+ * 
+ * @description Mongoose Data Model for User.
+ * @usage Import this model in routes & controllers to interact with the User MongoDB collection.
+ * @details Defines schema structure, field validations, and potentially pre/post hooks for database operations.
+ */
+
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+const userSchema = new mongoose.Schema({
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true, minlength: 6 },
+    full_name: { type: String, default: "" },
+    roll_number: { type: String, default: "" },
+    created_at: { type: Date, default: Date.now },
+    is_verified: { type: Boolean, default: false },
+    verification_token: { type: String },
+});
+
+// Hash password before saving
+userSchema.pre("save", async function () {
+    if (!this.isModified("password")) return;
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Compare entered password with hashed
+userSchema.methods.matchPassword = async function (enteredPassword) {
+    return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Generate JWT
+userSchema.methods.generateToken = function () {
+    return jwt.sign({ id: this._id }, process.env.JWT_SECRET || 'dev_fallback_secret_key_123', {
+        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    });
+};
+
+const User = mongoose.model("User", userSchema);
+export default User;
